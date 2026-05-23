@@ -33,6 +33,15 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
       return { success: true };
     }
 
+    // Silence Twilio's AudioHelper init warning on browsers that don't expose
+    // a synthetic "default" audiooutput device. The SDK unconditionally calls
+    // speakerDevices.set('default') and ringtoneDevices.set('default') during
+    // Device construction; on Safari and some Firefox builds that throws
+    // InvalidArgumentError. The warning is benign (audio routing falls back
+    // automatically) but pollutes the console. We can't intercept the SDK's
+    // internal call sites, so we filter the specific message instead.
+    CapacitorTwilioVoiceWeb.installAudioHelperWarningFilter();
+
     // Disable AudioContext-based sounds to avoid autoplay policy warnings
     // when Device is created before a user gesture (which happens during
     // automatic login on page load). The browser blocks AudioContext.play()
@@ -458,6 +467,38 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
     } catch {
       return { success: false };
     }
+  }
+
+  private static warningFilterInstalled = false;
+
+  /**
+   * Install a one-time console.warn filter that swallows exactly one
+   * benign Twilio AudioHelper message we cannot intercept upstream:
+   *
+   *   [TwilioVoice][AudioHelper] Warning: Unable to set audio output devices.
+   *   InvalidArgumentError: Devices not found: default
+   *
+   * Emitted by the SDK during Device construction on Safari / older Firefox
+   * (browsers that don't expose a synthetic "default" audiooutput entry in
+   * enumerateDevices). All other console.warn output passes through
+   * untouched.
+   */
+  private static installAudioHelperWarningFilter(): void {
+    if (CapacitorTwilioVoiceWeb.warningFilterInstalled) return;
+    if (typeof console === 'undefined' || typeof console.warn !== 'function') return;
+    CapacitorTwilioVoiceWeb.warningFilterInstalled = true;
+    const originalWarn = console.warn.bind(console);
+    console.warn = (...args: unknown[]) => {
+      const first = args[0];
+      if (
+        typeof first === 'string'
+        && first.includes('[TwilioVoice][AudioHelper]')
+        && first.includes('Devices not found: default')
+      ) {
+        return;
+      }
+      originalWarn(...args);
+    };
   }
 
   /**

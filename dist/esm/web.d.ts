@@ -90,6 +90,20 @@ export declare class CapacitorTwilioVoiceWeb extends WebPlugin implements Capaci
     }): Promise<{
         success: boolean;
     }>;
+    private static warningFilterInstalled;
+    /**
+     * Install a one-time console.warn filter that swallows exactly one
+     * benign Twilio AudioHelper message we cannot intercept upstream:
+     *
+     *   [TwilioVoice][AudioHelper] Warning: Unable to set audio output devices.
+     *   InvalidArgumentError: Devices not found: default
+     *
+     * Emitted by the SDK during Device construction on Safari / older Firefox
+     * (browsers that don't expose a synthetic "default" audiooutput entry in
+     * enumerateDevices). All other console.warn output passes through
+     * untouched.
+     */
+    private static installAudioHelperWarningFilter;
     /**
      * Resolve a usable audiooutput device ID without relying on the synthetic
      * "default" string that only Chrome/Edge expose. Returns null when the

@@ -29,6 +29,14 @@ var capacitorCapacitorTwilioVoice = (function (exports, core, voiceSdk) {
                 }
                 return { success: true };
             }
+            // Silence Twilio's AudioHelper init warning on browsers that don't expose
+            // a synthetic "default" audiooutput device. The SDK unconditionally calls
+            // speakerDevices.set('default') and ringtoneDevices.set('default') during
+            // Device construction; on Safari and some Firefox builds that throws
+            // InvalidArgumentError. The warning is benign (audio routing falls back
+            // automatically) but pollutes the console. We can't intercept the SDK's
+            // internal call sites, so we filter the specific message instead.
+            CapacitorTwilioVoiceWeb.installAudioHelperWarningFilter();
             // Disable AudioContext-based sounds to avoid autoplay policy warnings
             // when Device is created before a user gesture (which happens during
             // automatic login on page load). The browser blocks AudioContext.play()
@@ -402,6 +410,35 @@ var capacitorCapacitorTwilioVoice = (function (exports, core, voiceSdk) {
             }
         }
         /**
+         * Install a one-time console.warn filter that swallows exactly one
+         * benign Twilio AudioHelper message we cannot intercept upstream:
+         *
+         *   [TwilioVoice][AudioHelper] Warning: Unable to set audio output devices.
+         *   InvalidArgumentError: Devices not found: default
+         *
+         * Emitted by the SDK during Device construction on Safari / older Firefox
+         * (browsers that don't expose a synthetic "default" audiooutput entry in
+         * enumerateDevices). All other console.warn output passes through
+         * untouched.
+         */
+        static installAudioHelperWarningFilter() {
+            if (CapacitorTwilioVoiceWeb.warningFilterInstalled)
+                return;
+            if (typeof console === 'undefined' || typeof console.warn !== 'function')
+                return;
+            CapacitorTwilioVoiceWeb.warningFilterInstalled = true;
+            const originalWarn = console.warn.bind(console);
+            console.warn = (...args) => {
+                const first = args[0];
+                if (typeof first === 'string'
+                    && first.includes('[TwilioVoice][AudioHelper]')
+                    && first.includes('Devices not found: default')) {
+                    return;
+                }
+                originalWarn(...args);
+            };
+        }
+        /**
          * Resolve a usable audiooutput device ID without relying on the synthetic
          * "default" string that only Chrome/Edge expose. Returns null when the
          * environment has no enumerable output devices (no permission yet, or a
@@ -764,6 +801,7 @@ var capacitorCapacitorTwilioVoice = (function (exports, core, voiceSdk) {
         }
     }
     CapacitorTwilioVoiceWeb.HARD_CLEANUP_TIMEOUT_MS = 500;
+    CapacitorTwilioVoiceWeb.warningFilterInstalled = false;
 
     var web = /*#__PURE__*/Object.freeze({
         __proto__: null,
