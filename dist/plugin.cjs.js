@@ -259,12 +259,24 @@ class CapacitorTwilioVoiceWeb extends core.WebPlugin {
             return { success: true };
         }
         try {
-            if (options.enabled && this.selectedOutputDeviceId) {
-                await this.device.audio.speakerDevices.set([this.selectedOutputDeviceId]);
+            // Resolve the actual device ID to set. Passing the literal string
+            // "default" only works in browsers that expose a synthetic default
+            // audiooutput device (Chrome, Edge). Safari and some Firefox builds
+            // do not — feeding "default" to speakerDevices.set() there triggers
+            // the SDK's "Unable to set audio output devices. InvalidArgumentError:
+            // Devices not found: default" warning. Resolving against the live
+            // enumeratedDevices list avoids that.
+            const targetId = options.enabled && this.selectedOutputDeviceId
+                ? this.selectedOutputDeviceId
+                : await this.resolveDefaultOutputDeviceId();
+            if (!targetId) {
+                // No output devices enumerable (permission not yet granted, or
+                // headless context). Skip the set() entirely — letting the SDK
+                // keep whatever it picked itself is preferable to firing the
+                // "Devices not found" warning.
+                return { success: true };
             }
-            else {
-                await this.device.audio.speakerDevices.set(['default']);
-            }
+            await this.device.audio.speakerDevices.set([targetId]);
             return { success: true };
         }
         catch (_b) {
@@ -370,13 +382,52 @@ class CapacitorTwilioVoiceWeb extends core.WebPlugin {
             return { success: false };
         }
         try {
+            // Callers can pass the literal "default" to mean "follow the system
+            // default", but Twilio's speakerDevices.set() will throw on that
+            // string in Safari/Firefox. Resolve to a real enumerated device ID
+            // before handing it off. The user-intent value (which may be
+            // "default") is what we remember in selectedOutputDeviceId so a
+            // later setSpeaker(true) still tracks the system default correctly.
+            const targetId = options.deviceId === 'default'
+                ? await this.resolveDefaultOutputDeviceId()
+                : options.deviceId;
+            if (!targetId) {
+                return { success: false };
+            }
             this.selectedOutputDeviceId = options.deviceId;
-            await this.device.audio.speakerDevices.set([options.deviceId]);
-            await this.device.audio.ringtoneDevices.set([options.deviceId]);
+            await this.device.audio.speakerDevices.set([targetId]);
+            await this.device.audio.ringtoneDevices.set([targetId]);
             return { success: true };
         }
         catch (_b) {
             return { success: false };
+        }
+    }
+    /**
+     * Resolve a usable audiooutput device ID without relying on the synthetic
+     * "default" string that only Chrome/Edge expose. Returns null when the
+     * environment has no enumerable output devices (no permission yet, or a
+     * headless context). Callers should treat null as "skip the set() and
+     * let the Twilio SDK keep whatever it picked".
+     */
+    async resolveDefaultOutputDeviceId() {
+        var _a, _b;
+        try {
+            if (!((_a = navigator.mediaDevices) === null || _a === void 0 ? void 0 : _a.enumerateDevices))
+                return null;
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const outputs = devices.filter((d) => d.kind === 'audiooutput');
+            if (outputs.length === 0)
+                return null;
+            // Chrome/Edge expose a synthetic device with deviceId === "default"
+            // that tracks the system default. Prefer it when present so future
+            // OS-level default changes flow through automatically; otherwise
+            // fall back to the first concrete output device (Safari/Firefox).
+            const explicit = outputs.find((d) => d.deviceId === 'default');
+            return (_b = explicit === null || explicit === void 0 ? void 0 : explicit.deviceId) !== null && _b !== void 0 ? _b : outputs[0].deviceId;
+        }
+        catch (_c) {
+            return null;
         }
     }
     // ─── Plugin Version ────────────────────────────────────────────────

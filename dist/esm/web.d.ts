@@ -90,6 +90,14 @@ export declare class CapacitorTwilioVoiceWeb extends WebPlugin implements Capaci
     }): Promise<{
         success: boolean;
     }>;
+    /**
+     * Resolve a usable audiooutput device ID without relying on the synthetic
+     * "default" string that only Chrome/Edge expose. Returns null when the
+     * environment has no enumerable output devices (no permission yet, or a
+     * headless context). Callers should treat null as "skip the set() and
+     * let the Twilio SDK keep whatever it picked".
+     */
+    private resolveDefaultOutputDeviceId;
     getPluginVersion(): Promise<{
         version: string;
     }>;
