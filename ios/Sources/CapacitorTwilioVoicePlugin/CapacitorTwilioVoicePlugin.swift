@@ -13,6 +13,7 @@ let kCachedDeviceToken = "CachedDeviceToken"
 let kCachedBindingDate = "CachedBindingDate"
 let kCachedAccessToken = "CachedAccessToken"
 let twimlParamTo = "to"
+let twimlParamCallerId = "callerId"
 
 public protocol PushKitEventDelegate: AnyObject {
     func credentialsUpdated(credentials: PKPushCredentials)
@@ -29,7 +30,7 @@ public protocol PushKitEventDelegate: AnyObject {
  */
 @objc(CapacitorTwilioVoicePlugin)
 public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEventDelegate {
-    private let pluginVersion: String = "8.0.28"
+    private let pluginVersion: String = "8.2.3"
 
     public let identifier = "CapacitorTwilioVoicePlugin"
     public let jsName = "CapacitorTwilioVoice"
@@ -74,6 +75,7 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
         let isSystemInitiated: Bool
         let displayName: String?
         let params: [String: String]?
+        let callerId: String?
     }
     private var pendingOutgoingCalls: [UUID: PendingOutgoingCall] = [:]
     private var routeObserverInstalled = false
@@ -438,6 +440,9 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
             return
         }
 
+        let displayName = call.getString("displayName")
+        let callerId = call.getString("callerId")
+
         var extraParams: [String: String]?
         if let paramsObj = call.getObject("params") {
             var dict = [String: String]()
@@ -458,7 +463,9 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
                                          handle: to,
                                          to: to,
                                          isSystemInitiated: false,
+                                         displayName: displayName,
                                          params: extraParams,
+                                         callerId: callerId,
                                          completion: { success in
                                             if success {
                                                 call.resolve(["success": true, "callSid": uuid.uuidString])
@@ -522,6 +529,7 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
                                         to: handleValue,
                                         isSystemInitiated: true,
                                         displayName: displayName,
+                                        callerId: nil,
                                         completion: { _ in })
         }
     }
@@ -926,6 +934,7 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
                                         isSystemInitiated: Bool,
                                         displayName: String? = nil,
                                         params: [String: String]? = nil,
+                                        callerId: String? = nil,
                                         completion: @escaping (Bool) -> Void) {
         guard let provider = callKitProvider else {
             completion(false)
@@ -936,9 +945,11 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
                                                          completion: completion,
                                                          isSystemInitiated: isSystemInitiated,
                                                          displayName: displayName,
-                                                         params: params)
+                                                         params: params,
+                                                         callerId: callerId)
 
-        let callHandle = CXHandle(type: .generic, value: handle)
+        let handleValue = (displayName?.isEmpty == false ? displayName! : handle)
+        let callHandle = CXHandle(type: .generic, value: handleValue)
         let startCallAction = CXStartCallAction(call: uuid, handle: callHandle)
         let transaction = CXTransaction(action: startCallAction)
 
@@ -970,7 +981,8 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
     private func reportIncomingCall(from: String, niceName: String, uuid: UUID) {
         guard let provider = callKitProvider else { return }
 
-        let callHandle = CXHandle(type: .generic, value: from)
+        let handleValue = niceName.isEmpty ? from : niceName
+        let callHandle = CXHandle(type: .generic, value: handleValue)
         let callUpdate = CXCallUpdate()
 
         callUpdate.remoteHandle = callHandle
@@ -999,9 +1011,12 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
         }
     }
 
-    private func performVoiceCall(uuid: UUID, to: String, extraParams: [String: String]? = nil, completionHandler: @escaping (Bool) -> Void) {
+    private func performVoiceCall(uuid: UUID, to: String, extraParams: [String: String]? = nil, callerId: String? = nil, completionHandler: @escaping (Bool) -> Void) {
         let connectOptions = ConnectOptions(accessToken: accessToken) { builder in
             var params: [String: String] = [twimlParamTo: to]
+            if let callerId = callerId, !callerId.isEmpty {
+                params[twimlParamCallerId] = callerId
+            }
             if let extra = extraParams {
                 for (key, value) in extra {
                     params[key] = value
@@ -1255,7 +1270,8 @@ extension CapacitorTwilioVoicePlugin: CXProviderDelegate {
                                                completion: { _ in },
                                                isSystemInitiated: true,
                                                displayName: nil,
-                                               params: nil)
+                                               params: nil,
+                                               callerId: nil)
             pendingOutgoingCalls[uuid] = fallback
             pendingCall = fallback
         }
@@ -1299,7 +1315,7 @@ extension CapacitorTwilioVoicePlugin: CXProviderDelegate {
 
         provider.reportOutgoingCall(with: uuid, startedConnectingAt: Date())
 
-        performVoiceCall(uuid: uuid, to: to, extraParams: callDetails.params) { [weak self] success in
+        performVoiceCall(uuid: uuid, to: to, extraParams: callDetails.params, callerId: callDetails.callerId) { [weak self] success in
             callDetails.completion(success)
             if !success {
                 self?.emitOutgoingCallFailed(uuid: uuid,

@@ -1,17 +1,16 @@
 ## Capacitor Twilio Voice Plugin
-
- <a href="https://capgo.app/"><img src='https://raw.githubusercontent.com/Cap-go/capgo/main/assets/capgo_banner.png' alt='Capgo - Instant updates for capacitor'/></a>
+<a href="https://capgo.app/"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-twilio-voice" alt="Capgo - Instant updates for Capacitor" /></a>
 
 <div align="center">
   <h2><a href="https://capgo.app/?ref=plugin_twilio_voice"> ➡️ Get Instant updates for your App with Capgo</a></h2>
   <h2><a href="https://capgo.app/consulting/?ref=plugin_twilio_voice"> Missing a feature? We’ll build the plugin for you 💪</a></h2>
 </div>
 
-A Capacitor plugin for integrating Twilio Voice calling functionality into iOS, Android, and Web/Electron applications.
+A Capacitor plugin for integrating Twilio Voice calling functionality into iOS and Android applications.
 
 ## Documentation
 
-The most complete doc is available here: <https://capgo.app/docs/plugins/twilio-voice/>
+The most complete doc is available here: https://capgo.app/docs/plugins/twilio-voice/
 
 ## Compatibility
 
@@ -44,7 +43,7 @@ npx cap sync
 
 Copy the code from `example-app/ios/App/App/CustomCapacitorViewController.swift` to your `ios/App/App/CustomCapacitorViewController.swift` file.
 
-1. Modify `AppDelegate.swift`
+3. Modify `AppDelegate.swift`
 
 Add the following to `AppDelegate.swift`:
 
@@ -176,6 +175,7 @@ Change the view controller to `CustomCapacitorViewController` in `Main.storyboar
 
 Look in the example app for more details.
 
+
 ### 4. Setup `Info.plist`
 
 Add the following to `ios/App/App/Info.plist`:
@@ -191,45 +191,43 @@ Add the following to `ios/App/App/Info.plist`:
 </array>
 ```
 
-1. Make sure you have the following capabilities enabled in Xcode:
+5. Make sure you have the following capabilities enabled in Xcode:
 
 - Push Notifications
 - Background Modes
 
-1. Generate the certificate for Push Notifications
+6. Generate the certificate for Push Notifications
 
 In order to generate the certificate for Push Notifications, you need to follow these steps:
 
 1. Generate the signing certificate for your app.
-
 ```bash
 openssl genrsa -out ALDsigning.key 2048
 ```
 
-1. Generate the signing request.
-
+2. Generate the signing request.
 ```bash
 openssl req -new -key ALDsigning.key -out csr3072ALDSigning.certSigningRequest -subj "/emailAddress=example@example.com, CN=Example Name, C=IE"
 ```
 
 Then, please upload it to your Apple Developer account [here](https://developer.apple.com/account/resources/certificates/add). Search for `Create a new VoIP Services Certificate`
 
-1. Download the file provided by Apple.
+3. Download the file provided by Apple.
 
-2. Extract the .p12 file from the downloaded file.
+4. Extract the .p12 file from the downloaded file.
 
 ```bash
 openssl pkcs12 -export -out voip_services.p12 -inkey ALDsigning.key -in voip_services.cer
 ```
 
-1. Export the `cert.pem` and `key.pem` files from the .p12 file.
+5. Export the `cert.pem` and `key.pem` files from the .p12 file.
 
 ```bash
 openssl pkcs12 -in voip_services.p12 -nokeys -out cert.pem -nodes
 openssl pkcs12 -in voip_services.p12 -nocerts -out key.pem -nodes
 ```
 
-1. Upload the `cert.pem` and `key.pem` files twilio.
+6. Upload the `cert.pem` and `key.pem` files twilio.
 
 ```bash
 npx twilio api:chat:v2:credentials:create --type=apn --sandbox --friendly-name="voice-push-credential (sandbox)" --certificate="$(cat /Users/your_username/Documents/twilio-voip/cert.pem)" --private-key="$(cat /Users/your_username/Documents/twilio-voip/key.pem)"
@@ -238,7 +236,6 @@ npx twilio api:chat:v2:credentials:create --type=apn --sandbox --friendly-name="
 ## Android Setup
 
 ### 1. Firebase Setup
-
 Add Firebase to your Android project:
 
 1. Add `google-services.json` to `android/app/`
@@ -254,7 +251,7 @@ dependencies {
 }
 ```
 
-1. Modify `MainActivity.java`
+4. Modify `MainActivity.java`
 
 Add the following to `MainActivity.java`:
 
@@ -300,7 +297,7 @@ public class MainActivity extends BridgeActivity {
 }
 ```
 
-1. Register the plugin in JS
+5. Register the plugin in JS
 
 ```diff
 + import { CapacitorTwilioVoice } from '@capgo/capacitor-twilio-voice';
@@ -309,9 +306,9 @@ public class MainActivity extends BridgeActivity {
 + Capacitor.registerPlugin('CapacitorTwilioVoice');
 ```
 
-1. Add `android:name="CapacitorApplication"` to the `application` tag in `android/app/src/main/AndroidManifest.xml`
+6. Add `android:name="CapacitorApplication"` to the `application` tag in `android/app/src/main/AndroidManifest.xml`
 
-2. Add the following to `android/app/src/main/AndroidManifest.xml`:
+7. Add the following to `android/app/src/main/AndroidManifest.xml`:
 
 ```xml
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -321,69 +318,10 @@ public class MainActivity extends BridgeActivity {
 
 Keep in mind, this will make it so that you app can be accessed when the screen is locked.
 
-## Web/Electron Setup
-
-The web implementation uses the [Twilio Voice JS SDK](https://www.twilio.com/docs/voice/sdks/javascript) (`@twilio/voice-sdk`) and works in both browsers and Electron.
-
-### 1. Serve over HTTPS
-
-Microphone access (`getUserMedia`) requires a secure context. In development you can use `localhost`; in production your app must be served over HTTPS.
-
-### 2. No native configuration needed
-
-Unlike iOS and Android, the web platform does not require any native project modifications, push notification certificates, or Firebase setup. The plugin registers itself automatically via `registerPlugin` in `src/index.ts`.
-
-### 3. Audio device selection (optional)
-
-The web implementation supports selecting specific microphones and speakers during a call:
-
-```typescript
-// List available devices (requires microphone permission)
-const { inputs, outputs } = await CapacitorTwilioVoice.getAudioDevices();
-
-// Select a specific microphone
-await CapacitorTwilioVoice.setInputDevice({ deviceId: inputs[0].deviceId });
-
-// Select a specific speaker (requires browser setSinkId support)
-await CapacitorTwilioVoice.setOutputDevice({ deviceId: outputs[0].deviceId });
-
-// Listen for device changes (e.g., headphones plugged in)
-CapacitorTwilioVoice.addListener('audioDevicesChanged', (data) => {
-  console.log('Devices changed:', data.inputs, data.outputs);
-});
-```
-
-> **Note:** `getAudioDevices()`, `setInputDevice()`, `setOutputDevice()`, and the `audioDevicesChanged` event are web/Electron only. On iOS and Android they return empty arrays or no-op respectively.
-
-### 4. DTMF tones
-
-Sending DTMF digits is supported on all platforms (iOS, Android, and Web):
-
-```typescript
-// Send digits during an active call
-await CapacitorTwilioVoice.sendDigits({ digits: '1234' });
-
-// Send digits with pauses (w = 0.5s pause)
-await CapacitorTwilioVoice.sendDigits({ digits: '1w2w3' });
-```
-
-Valid characters: `0-9`, `*`, `#`, and `w` (0.5 second pause).
-
-### Platform differences
-
-| Feature | iOS | Android | Web/Electron |
-|---------|-----|---------|--------------|
-| Incoming calls (push) | VoIP push (PushKit) | FCM push | Twilio JS SDK `incoming` event |
-| CallKit / Telecom integration | ✅ | ✅ | N/A |
-| Audio device selection | OS-managed | OS-managed | Programmatic (`getAudioDevices`, `setInputDevice`, `setOutputDevice`) |
-| DTMF (`sendDigits`) | ✅ | ✅ | ✅ |
-| Speaker toggle | Hardware routing | AudioSwitch | `setSinkId` API (best-effort) |
-
 ## Twilio Setup
 
-- [iOS Setup](https://www.twilio.com/docs/voice/sdks/ios/get-started)
-- [Android Setup](https://www.twilio.com/docs/voice/sdks/android/get-started)
-- [Web/JavaScript Setup](https://www.twilio.com/docs/voice/sdks/javascript/get-started)
+ - [iOS Setup](https://www.twilio.com/docs/voice/sdks/ios/get-started)
+ - [Android Setup](https://www.twilio.com/docs/voice/sdks/android/get-started)
 
 ## Caller Name Display (CapacitorTwilioCallerName)
 
@@ -438,68 +376,50 @@ If `CapacitorTwilioCallerName` is not provided, the plugin falls back to the cal
 ### Authentication
 
 #### `login(options: { accessToken: string })`
-
 Authenticates with Twilio using a JWT access token:
-
 - Validates token expiration automatically
 - Stores token securely for app restarts  
 - Registers for VoIP push notifications
 - **Note**: The plugin will reject expired tokens
 
 #### `logout()`
-
 Logs out the current user and cleans up all session data:
-
 - Unregisters from VoIP push notifications
 - Clears stored access tokens
 - Ends any active calls
 - Resets all call state
 
 #### `isLoggedIn()`
-
 Checks if user is currently logged in with a valid (non-expired) token.
 Returns: `{ isLoggedIn: boolean, hasValidToken: boolean, identity?: string }`
 
 The `identity` field contains the user identity extracted from the JWT token if logged in.
 
 #### `makeCall(options: { to: string })`
-
 Initiates an outgoing call. Requires prior authentication via `login()`.
 
 #### `acceptCall(options: { callSid: string })`
-
 Accepts an incoming call.
 
 #### `rejectCall(options: { callSid: string })`
-
 Rejects an incoming call.
 
 #### `endCall(options?: { callSid?: string })`
-
 Ends the active call or a specific call.
 
 #### `muteCall(options: { muted: boolean, callSid?: string })`
-
 Mutes or unmutes the microphone.
 
-#### `sendDigits(options: { digits: string, callSid?: string })`
-
-Sends DTMF digits during an active call. Valid characters are 0-9, *, #, and w (for 0.5s pause).
-
 #### `setSpeaker(options: { enabled: boolean })`
-
 Enables or disables the speaker. On Android, uses Twilio AudioSwitch to manage audio routing between earpiece, speaker, and connected devices (headsets, Bluetooth, etc.).
 
 #### `getCallStatus()`
-
 Gets the current call status.
 
 #### `checkMicrophonePermission()`
-
 Checks if microphone permission is granted.
 
 #### `requestMicrophonePermission()`
-
 Requests microphone permission from the user.
 
 ### Event Listeners
@@ -549,9 +469,7 @@ CapacitorTwilioVoice.addListener('callQualityWarningsChanged', (data) => {
 ## JWT Token Management
 
 ### Token Format
-
 The plugin expects Twilio access tokens in JWT format with this structure:
-
 ```json
 {
   "iss": "your-account-sid",
@@ -569,15 +487,12 @@ The plugin expects Twilio access tokens in JWT format with this structure:
 ```
 
 ### Token Validation
-
 - Tokens are automatically validated for expiration
 - Invalid or expired tokens will be rejected
 - Use `isLoggedIn()` to check token status
 
 ### Backend Integration
-
 Fetch access tokens from your backend server:
-
 ```typescript
 async function fetchAccessToken(identity: string): Promise<string> {
   const response = await fetch(`/accessToken?identity=${identity}`);
@@ -588,28 +503,17 @@ async function fetchAccessToken(identity: string): Promise<string> {
 ## Testing Requirements
 
 ### iOS Simulator Limitations
-
 - VoIP push notifications don't work in the iOS Simulator
 - Use a physical iOS device for testing incoming calls
 - Outgoing calls work in both Simulator and device
 
 ### Android Emulator
-
 - Requires Google Play Services
 - Firebase messaging works in Android Emulator with Google APIs
-
-### Web/Electron
-
-- Works in modern browsers (Chrome, Edge, Firefox, Safari 14.1+)
-- Microphone access requires HTTPS or `localhost`
-- Audio device selection (`setInputDevice`/`setOutputDevice`) requires browser support for `setSinkId`
-- No push notifications — incoming calls are delivered via the Twilio JS SDK's `incoming` event while the page is open
-- DTMF tones (`sendDigits`) work on all platforms including web
 
 ## Error Handling
 
 The plugin provides detailed error information:
-
 ```typescript
 try {
   await CapacitorTwilioVoice.makeCall({ to: '+1234567890' });
@@ -619,7 +523,6 @@ try {
 ```
 
 Common error scenarios:
-
 - **Invalid token**: Check token format and expiration
 - **No microphone permission**: Call `requestMicrophonePermission()`
 - **Network issues**: Verify internet connectivity
@@ -638,7 +541,7 @@ Common error scenarios:
 |----------|---------|-------|
 | iOS      | ✅      | Requires iOS 13.0+ |
 | Android  | ✅      | Requires API level 23+ |
-| Web      | ✅      | Supports browser and Electron. Audio device selection (microphone/speaker) supported. |
+| Web      | ❌      | Not supported |
 
 ## API
 
@@ -736,7 +639,7 @@ Check if the user is currently logged in and has a valid access token.
 ### makeCall(...)
 
 ```typescript
-makeCall(options: { to: string; params?: Record<string, string>; }) => Promise<{ success: boolean; callSid?: string; }>
+makeCall(options: { to: string; displayName?: string; callerId?: string; params?: Record<string, string>; }) => Promise<{ success: boolean; callSid?: string; }>
 ```
 
 Initiate an outgoing call to a phone number or client.
@@ -744,9 +647,9 @@ Initiate an outgoing call to a phone number or client.
 The user must be logged in before making a call. The call will be routed
 through your Twilio backend configuration.
 
-| Param         | Type                                                                                      | Description            |
-| ------------- | ----------------------------------------------------------------------------------------- | ---------------------- |
-| **`options`** | <code>{ to: string; params?: <a href="#record">Record</a>&lt;string, string&gt;; }</code> | - Configuration object |
+| Param         | Type                                                                                                                               | Description            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **`options`** | <code>{ to: string; displayName?: string; callerId?: string; params?: <a href="#record">Record</a>&lt;string, string&gt;; }</code> | - Configuration object |
 
 **Returns:** <code>Promise&lt;{ success: boolean; callSid?: string; }&gt;</code>
 

@@ -159,6 +159,12 @@ export interface CapacitorTwilioVoicePlugin {
    *
    * @param options - Configuration object
    * @param options.to - Phone number (E.164 format) or Twilio client identifier to call
+   * @param options.displayName - Optional human-readable name used as the
+   *   iOS CXHandle value so Phone.app Recents renders a readable label
+   *   instead of the raw `to` identity.
+   * @param options.callerId - Optional caller ID/phone number to send to your
+   *   TwiML app so the backend can set the outbound `From` value instead of
+   *   defaulting to the contact URI.
    * @returns Promise that resolves with success status and call SID
    * @returns success - Whether the call was initiated successfully
    * @returns callSid - Unique identifier for this call (if successful)
@@ -171,13 +177,25 @@ export interface CapacitorTwilioVoicePlugin {
    * });
    * console.log('Call SID:', result.callSid);
    *
-   * // Call another Twilio client
+   * // Call another Twilio client with a readable name for CallKit Recents
    * await CapacitorTwilioVoice.makeCall({
-   *   to: 'client:alice'
+   *   to: 'client:alice',
+   *   displayName: 'Alice Smith'
+   * });
+   *
+   * // Call a PSTN number using a specific caller ID
+   * await CapacitorTwilioVoice.makeCall({
+   *   to: '+1234567890',
+   *   callerId: '+10987654321'
    * });
    * ```
    */
-  makeCall(options: { to: string; params?: Record<string, string> }): Promise<{ success: boolean; callSid?: string }>;
+  makeCall(options: {
+    to: string;
+    displayName?: string;
+    callerId?: string;
+    params?: Record<string, string>;
+  }): Promise<{ success: boolean; callSid?: string }>;
 
   /**
    * Accept an incoming call.

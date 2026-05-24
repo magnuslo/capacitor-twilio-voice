@@ -90,12 +90,12 @@
       },
       {
         "name": "makeCall",
-        "signature": "(options: { to: string; params?: Record<string, string>; }) => Promise<{ success: boolean; callSid?: string; }>",
+        "signature": "(options: { to: string; displayName?: string; callerId?: string; params?: Record<string, string>; }) => Promise<{ success: boolean; callSid?: string; }>",
         "parameters": [
           {
             "name": "options",
             "docs": "- Configuration object",
-            "type": "{ to: string; params?: Record<string, string> | undefined; }"
+            "type": "{ to: string; displayName?: string | undefined; callerId?: string | undefined; params?: Record<string, string> | undefined; }"
           }
         ],
         "returns": "Promise<{ success: boolean; callSid?: string | undefined; }>",
@@ -107,6 +107,14 @@
           {
             "name": "param",
             "text": "options.to - Phone number (E.164 format) or Twilio client identifier to call"
+          },
+          {
+            "name": "param",
+            "text": "options.displayName - Optional human-readable name used as the\niOS CXHandle value so Phone.app Recents renders a readable label\ninstead of the raw `to` identity."
+          },
+          {
+            "name": "param",
+            "text": "options.callerId - Optional caller ID/phone number to send to your\nTwiML app so the backend can set the outbound `From` value instead of\ndefaulting to the contact URI."
           },
           {
             "name": "returns",
@@ -122,7 +130,7 @@
           },
           {
             "name": "example",
-            "text": "```typescript\n// Call a phone number\nconst result = await CapacitorTwilioVoice.makeCall({\n  to: '+1234567890'\n});\nconsole.log('Call SID:', result.callSid);\n\n// Call another Twilio client\nawait CapacitorTwilioVoice.makeCall({\n  to: 'client:alice'\n});\n```"
+            "text": "```typescript\n// Call a phone number\nconst result = await CapacitorTwilioVoice.makeCall({\n  to: '+1234567890'\n});\nconsole.log('Call SID:', result.callSid);\n\n// Call another Twilio client with a readable name for CallKit Recents\nawait CapacitorTwilioVoice.makeCall({\n  to: 'client:alice',\n  displayName: 'Alice Smith'\n});\n\n// Call a PSTN number using a specific caller ID\nawait CapacitorTwilioVoice.makeCall({\n  to: '+1234567890',\n  callerId: '+10987654321'\n});\n```"
           }
         ],
         "docs": "Initiate an outgoing call to a phone number or client.\n\nThe user must be logged in before making a call. The call will be routed\nthrough your Twilio backend configuration.",

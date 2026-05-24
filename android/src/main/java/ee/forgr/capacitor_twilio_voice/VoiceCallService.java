@@ -20,7 +20,9 @@ import com.twilio.voice.CallException;
 import com.twilio.voice.CallInvite;
 import com.twilio.voice.ConnectOptions;
 import com.twilio.voice.Voice;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class VoiceCallService extends Service {
 
@@ -37,6 +39,7 @@ public class VoiceCallService extends Service {
 
     // Intent extras
     public static final String EXTRA_CALL_TO = "CALL_TO";
+    public static final String EXTRA_CALLER_ID = "CALLER_ID";
     public static final String EXTRA_ACCESS_TOKEN = "ACCESS_TOKEN";
     public static final String EXTRA_CALL_INVITE = "CALL_INVITE";
     public static final String EXTRA_CALL_SID = "CALL_SID";
@@ -132,6 +135,10 @@ public class VoiceCallService extends Service {
             activeCall = null;
         }
 
+        // Deactivate audio routing for this call. AudioSwitch lifecycle (start/stop)
+        // is owned by CapacitorTwilioVoicePlugin; we only deactivate the active session.
+        deactivateAudioSwitch();
+
         super.onDestroy();
     }
 
@@ -149,12 +156,39 @@ public class VoiceCallService extends Service {
         }
     }
 
+    private void activateAudioSwitch() {
+        AudioSwitch audioSwitch = CapacitorTwilioVoicePlugin.getAudioSwitch(getApplicationContext());
+        if (audioSwitch == null) {
+            return;
+        }
+
+        try {
+            audioSwitch.activate();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to activate AudioSwitch", e);
+        }
+    }
+
+    private void deactivateAudioSwitch() {
+        AudioSwitch audioSwitch = CapacitorTwilioVoicePlugin.getAudioSwitch(getApplicationContext());
+        if (audioSwitch == null) {
+            return;
+        }
+
+        try {
+            audioSwitch.deactivate();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to deactivate AudioSwitch", e);
+        }
+    }
+
     public void setServiceListener(VoiceCallServiceListener listener) {
         this.serviceListener = listener;
     }
 
     private void handleStartCall(Intent intent) {
         String to = intent.getStringExtra(EXTRA_CALL_TO);
+        String callerId = intent.getStringExtra(EXTRA_CALLER_ID);
         String accessToken = intent.getStringExtra(EXTRA_ACCESS_TOKEN);
 
         if (accessToken == null || accessToken.isEmpty()) {
@@ -168,9 +202,13 @@ public class VoiceCallService extends Service {
         // Start foreground service with ongoing call notification
         startForeground(VOICE_NOTIFICATION_ID, createOngoingCallNotification("Connecting...", false));
 
-        java.util.Map<String, String> params = new java.util.HashMap<>();
+        ConnectOptions.Builder builder = new ConnectOptions.Builder(accessToken);
+        Map<String, String> params = new HashMap<>();
         if (to != null && !to.isEmpty()) {
             params.put("to", to);
+        }
+        if (callerId != null && !callerId.isEmpty()) {
+            params.put("callerId", callerId);
         }
         android.os.Bundle extraParams = intent.getBundleExtra(EXTRA_CALL_PARAMS);
         if (extraParams != null) {
@@ -178,8 +216,6 @@ public class VoiceCallService extends Service {
                 params.put(key, extraParams.getString(key));
             }
         }
-
-        ConnectOptions.Builder builder = new ConnectOptions.Builder(accessToken);
         if (!params.isEmpty()) {
             builder.params(params);
         }
@@ -250,6 +286,8 @@ public class VoiceCallService extends Service {
             Log.w(TAG, "handleSpeakerToggle: AudioSwitch unavailable");
             return;
         }
+
+        activateAudioSwitch();
 
         List<AudioDevice> audioDevices = audioSwitch.getAvailableAudioDevices();
         AudioDevice selectedDevice = null;
@@ -400,6 +438,8 @@ public class VoiceCallService extends Service {
             activeCall = call;
             currentCallSid = call.getSid();
 
+            activateAudioSwitch();
+
             // Update notification to show connected state with actions
             updateOngoingCallNotification();
 
@@ -450,6 +490,8 @@ public class VoiceCallService extends Service {
             currentCallSid = null;
             isCallMuted = false;
             isSpeakerEnabled = false;
+
+            deactivateAudioSwitch();
 
             if (serviceListener != null) {
                 serviceListener.onCallDisconnected(call, error);
