@@ -112,6 +112,9 @@ export declare class CapacitorTwilioVoiceWeb extends WebPlugin implements Capaci
      * let the Twilio SDK keep whatever it picked".
      */
     private resolveDefaultOutputDeviceId;
+    presentAudioRoutePicker(): Promise<{
+        success: boolean;
+    }>;
     getPluginVersion(): Promise<{
         version: string;
     }>;

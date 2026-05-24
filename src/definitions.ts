@@ -471,6 +471,28 @@ export interface CapacitorTwilioVoicePlugin {
    */
   setOutputDevice(options: { deviceId: string }): Promise<{ success: boolean }>;
 
+  /**
+   * Present the system audio route picker (iOS only).
+   *
+   * iOS does not expose the list of selectable audio outputs to applications.
+   * The recommended UX is to invoke the system AVRoutePickerView modal,
+   * which lets the user pick AirPods / speakers / connected Bluetooth /
+   * AirPlay targets in a native Apple sheet. Use this on iOS instead of
+   * building a custom output device list.
+   *
+   * Resolves `{ success: true }` when the picker was shown, `{ success: false }`
+   * on web / Android / electron (no equivalent system UI exists there — fall
+   * back to your own selector built on `getAudioDevices()` + `setOutputDevice()`).
+   *
+   * @example
+   * ```typescript
+   * if (Capacitor.getPlatform() === 'ios') {
+   *   await CapacitorTwilioVoice.presentAudioRoutePicker();
+   * }
+   * ```
+   */
+  presentAudioRoutePicker(): Promise<{ success: boolean }>;
+
   // Listeners for events
 
   /**

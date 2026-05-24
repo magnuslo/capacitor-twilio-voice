@@ -525,6 +525,10 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
     }
   }
 
+  async presentAudioRoutePicker(): Promise<{ success: boolean }> {
+    return { success: false };
+  }
+
   // ─── Plugin Version ────────────────────────────────────────────────
 
   async getPluginVersion(): Promise<{ version: string }> {

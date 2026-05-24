@@ -46,7 +46,6 @@ public class VoiceCallService extends Service {
 
     private Call activeCall;
     private CallInvite activeCallInvite;
-    private AudioSwitch audioSwitch;
     private boolean isCallMuted = false;
     private boolean isSpeakerEnabled = false;
     private String currentCallSid;
@@ -81,7 +80,8 @@ public class VoiceCallService extends Service {
         Log.d(TAG, "VoiceCallService created");
 
         createNotificationChannel();
-        initializeAudioSwitch();
+        // AudioSwitch is owned and lifecycle-managed by CapacitorTwilioVoicePlugin.
+        // The service is a passive consumer; do not start/stop it here.
     }
 
     @Override
@@ -127,16 +127,9 @@ public class VoiceCallService extends Service {
     public void onDestroy() {
         Log.d(TAG, "VoiceCallService destroyed");
 
-        // Clean up active call
         if (activeCall != null) {
             activeCall.disconnect();
             activeCall = null;
-        }
-
-        // Clean up audio switch
-        if (audioSwitch != null) {
-            audioSwitch.stop();
-            audioSwitch = null;
         }
 
         super.onDestroy();
@@ -154,15 +147,6 @@ public class VoiceCallService extends Service {
                 manager.createNotificationChannel(channel);
             }
         }
-    }
-
-    private void initializeAudioSwitch() {
-        audioSwitch = new AudioSwitch(getApplicationContext());
-        audioSwitch.start((audioDevices, selectedDevice) -> {
-            Log.d(TAG, "Available audio devices: " + audioDevices);
-            Log.d(TAG, "Selected audio device: " + selectedDevice);
-            return kotlin.Unit.INSTANCE;
-        });
     }
 
     public void setServiceListener(VoiceCallServiceListener listener) {
@@ -261,33 +245,43 @@ public class VoiceCallService extends Service {
     private void handleSpeakerToggle(Intent intent) {
         boolean speakerEnabled = intent.getBooleanExtra(EXTRA_SPEAKER_ENABLED, false);
 
-        if (audioSwitch != null) {
-            List<AudioDevice> audioDevices = audioSwitch.getAvailableAudioDevices();
-            AudioDevice selectedDevice = null;
+        AudioSwitch audioSwitch = CapacitorTwilioVoicePlugin.getAudioSwitch(getApplicationContext());
+        if (audioSwitch == null) {
+            Log.w(TAG, "handleSpeakerToggle: AudioSwitch unavailable");
+            return;
+        }
 
-            if (speakerEnabled) {
-                // Find speakerphone
-                for (AudioDevice device : audioDevices) {
-                    if (device instanceof AudioDevice.Speakerphone) {
-                        selectedDevice = device;
-                        break;
-                    }
+        List<AudioDevice> audioDevices = audioSwitch.getAvailableAudioDevices();
+        AudioDevice selectedDevice = null;
+
+        if (speakerEnabled) {
+            for (AudioDevice device : audioDevices) {
+                if (device instanceof AudioDevice.Speakerphone) {
+                    selectedDevice = device;
+                    break;
                 }
-            } else {
-                // Find earpiece or bluetooth
+            }
+        } else {
+            for (AudioDevice device : audioDevices) {
+                if (device instanceof AudioDevice.BluetoothHeadset || device instanceof AudioDevice.WiredHeadset) {
+                    selectedDevice = device;
+                    break;
+                }
+            }
+            if (selectedDevice == null) {
                 for (AudioDevice device : audioDevices) {
-                    if (device instanceof AudioDevice.Earpiece || device instanceof AudioDevice.BluetoothHeadset) {
+                    if (device instanceof AudioDevice.Earpiece) {
                         selectedDevice = device;
                         break;
                     }
                 }
             }
+        }
 
-            if (selectedDevice != null) {
-                audioSwitch.selectDevice(selectedDevice);
-                isSpeakerEnabled = speakerEnabled;
-                Log.d(TAG, "Audio device changed to: " + selectedDevice.getName());
-            }
+        if (selectedDevice != null) {
+            audioSwitch.selectDevice(selectedDevice);
+            isSpeakerEnabled = speakerEnabled;
+            Log.d(TAG, "Audio device changed to: " + selectedDevice.getName());
         }
     }
 

@@ -660,6 +660,7 @@ Common error scenarios:
 * [`getAudioDevices()`](#getaudiodevices)
 * [`setInputDevice(...)`](#setinputdevice)
 * [`setOutputDevice(...)`](#setoutputdevice)
+* [`presentAudioRoutePicker()`](#presentaudioroutepicker)
 * [`addListener('callInviteReceived', ...)`](#addlistenercallinvitereceived-)
 * [`addListener('callConnected', ...)`](#addlistenercallconnected-)
 * [`addListener('callInviteCancelled', ...)`](#addlistenercallinvitecancelled-)
@@ -968,6 +969,29 @@ On iOS/Android: No-op, returns `{ success: true }`.
 | Param         | Type                               | Description            |
 | ------------- | ---------------------------------- | ---------------------- |
 | **`options`** | <code>{ deviceId: string; }</code> | - Configuration object |
+
+**Returns:** <code>Promise&lt;{ success: boolean; }&gt;</code>
+
+--------------------
+
+
+### presentAudioRoutePicker()
+
+```typescript
+presentAudioRoutePicker() => Promise<{ success: boolean; }>
+```
+
+Present the system audio route picker (iOS only).
+
+iOS does not expose the list of selectable audio outputs to applications.
+The recommended UX is to invoke the system AVRoutePickerView modal,
+which lets the user pick AirPods / speakers / connected Bluetooth /
+AirPlay targets in a native Apple sheet. Use this on iOS instead of
+building a custom output device list.
+
+Resolves `{ success: true }` when the picker was shown, `{ success: false }`
+on web / Android / electron (no equivalent system UI exists there — fall
+back to your own selector built on `getAudioDevices()` + `setOutputDevice()`).
 
 **Returns:** <code>Promise&lt;{ success: boolean; }&gt;</code>
 

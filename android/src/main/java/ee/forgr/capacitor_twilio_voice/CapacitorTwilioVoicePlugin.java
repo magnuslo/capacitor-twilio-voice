@@ -21,7 +21,9 @@ import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.provider.Settings;
@@ -38,11 +40,13 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -58,6 +62,7 @@ import com.twilio.voice.RegistrationListener;
 import com.twilio.voice.UnregistrationListener;
 import com.twilio.voice.Voice;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,7 +75,8 @@ import org.json.JSONObject;
     permissions = {
         @Permission(strings = { Manifest.permission.RECORD_AUDIO }),
         @Permission(strings = { Manifest.permission.WAKE_LOCK }),
-        @Permission(strings = { Manifest.permission.USE_FULL_SCREEN_INTENT })
+        @Permission(strings = { Manifest.permission.USE_FULL_SCREEN_INTENT }),
+        @Permission(alias = "bluetooth", strings = { Manifest.permission.BLUETOOTH_CONNECT })
     }
 )
 public class CapacitorTwilioVoicePlugin extends Plugin {
@@ -92,7 +98,14 @@ public class CapacitorTwilioVoicePlugin extends Plugin {
     private Map<UUID, Call> callsByUuid = new HashMap<>();
     private Call activeCall;
 
-    private AudioSwitch audioSwitch;
+    private static AudioSwitch audioSwitch;
+    private static boolean audioSwitchStarted = false;
+    private static final Object AUDIO_SWITCH_LOCK = new Object();
+
+    private final Map<String, AudioDevice> audioDeviceIdMap = new LinkedHashMap<>();
+    private Handler audioDevicesDebounceHandler;
+    private Runnable audioDevicesDebounceRunnable;
+    private static final long AUDIO_DEVICES_DEBOUNCE_MS = 100L;
 
     private Context injectedContext;
 
@@ -381,17 +394,23 @@ public class CapacitorTwilioVoicePlugin extends Plugin {
     protected void handleOnDestroy() {
         super.handleOnDestroy();
 
-        // Clean up AudioSwitch
-        if (audioSwitch != null) {
-            audioSwitch.stop();
-            audioSwitch = null;
+        if (audioDevicesDebounceHandler != null && audioDevicesDebounceRunnable != null) {
+            audioDevicesDebounceHandler.removeCallbacks(audioDevicesDebounceRunnable);
+        }
+        audioDevicesDebounceRunnable = null;
+        audioDevicesDebounceHandler = null;
+
+        synchronized (AUDIO_SWITCH_LOCK) {
+            if (audioSwitch != null) {
+                audioSwitch.stop();
+                audioSwitch = null;
+                audioSwitchStarted = false;
+            }
         }
 
-        // Clean up ringtone and notifications
         stopRingtone();
         dismissIncomingCallNotification();
 
-        // Clear plugin instance
         instance = null;
 
         Log.d(TAG, "CapacitorTwilioVoice plugin destroyed");
@@ -627,17 +646,86 @@ public class CapacitorTwilioVoicePlugin extends Plugin {
     }
 
     private void initializeAudioSwitch() {
-        audioSwitch = new AudioSwitch(getSafeContext().getApplicationContext(), null, true);
-        audioSwitch.start((audioDevices, selectedDevice) -> {
-            Log.d(TAG, "Available audio devices: " + audioDevices.size());
-            for (AudioDevice device : audioDevices) {
-                Log.d(TAG, "Available device: " + device.getName());
+        ensureAudioSwitchStarted();
+    }
+
+    public static AudioSwitch getAudioSwitch(Context context) {
+        synchronized (AUDIO_SWITCH_LOCK) {
+            if (audioSwitch == null && context != null) {
+                audioSwitch = new AudioSwitch(context.getApplicationContext(), null, true);
             }
-            if (selectedDevice != null) {
-                Log.d(TAG, "Selected audio device: " + selectedDevice.getName());
+            return audioSwitch;
+        }
+    }
+
+    private AudioSwitch ensureAudioSwitchStarted() {
+        synchronized (AUDIO_SWITCH_LOCK) {
+            if (audioSwitch == null) {
+                audioSwitch = new AudioSwitch(getSafeContext().getApplicationContext(), null, true);
             }
-            return kotlin.Unit.INSTANCE;
-        });
+            if (!audioSwitchStarted) {
+                audioSwitch.start((audioDevices, selectedDevice) -> {
+                    onAudioDevicesChanged(audioDevices, selectedDevice);
+                    return kotlin.Unit.INSTANCE;
+                });
+                audioSwitchStarted = true;
+            }
+            return audioSwitch;
+        }
+    }
+
+    private void onAudioDevicesChanged(List<AudioDevice> devices, AudioDevice selected) {
+        if (audioDevicesDebounceHandler == null) {
+            audioDevicesDebounceHandler = new Handler(Looper.getMainLooper());
+        }
+        if (audioDevicesDebounceRunnable != null) {
+            audioDevicesDebounceHandler.removeCallbacks(audioDevicesDebounceRunnable);
+        }
+        audioDevicesDebounceRunnable = () -> emitAudioDevicesChanged(devices, selected);
+        audioDevicesDebounceHandler.postDelayed(audioDevicesDebounceRunnable, AUDIO_DEVICES_DEBOUNCE_MS);
+    }
+
+    private void emitAudioDevicesChanged(List<AudioDevice> devices, AudioDevice selected) {
+        JSObject payload = buildAudioDevicesPayload(devices, selected);
+        notifyListeners("audioDevicesChanged", payload);
+    }
+
+    private JSObject buildAudioDevicesPayload(List<AudioDevice> devices, AudioDevice selected) {
+        JSArray outputs = new JSArray();
+        synchronized (audioDeviceIdMap) {
+            audioDeviceIdMap.clear();
+            if (devices != null) {
+                for (AudioDevice device : devices) {
+                    String deviceId = deviceIdFor(device);
+                    audioDeviceIdMap.put(deviceId, device);
+
+                    JSObject entry = new JSObject();
+                    entry.put("deviceId", deviceId);
+                    entry.put("label", device.getName());
+                    entry.put("kind", "audiooutput");
+                    entry.put("isDefault", selected != null && deviceIdFor(selected).equals(deviceId));
+                    outputs.put(entry);
+                }
+            }
+        }
+
+        JSArray inputs = new JSArray();
+        JSObject defaultInput = new JSObject();
+        defaultInput.put("deviceId", "default");
+        defaultInput.put("label", "Default microphone");
+        defaultInput.put("kind", "audioinput");
+        defaultInput.put("isDefault", true);
+        inputs.put(defaultInput);
+
+        JSObject payload = new JSObject();
+        payload.put("inputs", inputs);
+        payload.put("outputs", outputs);
+        return payload;
+    }
+
+    private String deviceIdFor(AudioDevice device) {
+        String name = device.getName();
+        return device.getClass().getSimpleName() + ":" + (name != null ? name : "unknown");
     }
 
     @PluginMethod
@@ -696,9 +784,10 @@ public class CapacitorTwilioVoicePlugin extends Plugin {
         activeCallInvites.clear();
         activeCall = null;
 
-        // Deactivate AudioSwitch
-        if (audioSwitch != null) {
-            audioSwitch.deactivate();
+        synchronized (AUDIO_SWITCH_LOCK) {
+            if (audioSwitch != null) {
+                audioSwitch.deactivate();
+            }
         }
 
         Log.d(TAG, "Logout completed successfully");
@@ -1883,31 +1972,76 @@ public class CapacitorTwilioVoicePlugin extends Plugin {
         }
     }
 
-    // Audio Device Selection (Web-only, stubs for native)
-
     @PluginMethod
     public void getAudioDevices(final PluginCall call) {
-        // Audio device selection is only supported on web platform.
-        // On Android, the system manages audio routing automatically.
-        final JSObject ret = new JSObject();
-        ret.put("inputs", new com.getcapacitor.JSArray());
-        ret.put("outputs", new com.getcapacitor.JSArray());
-        call.resolve(ret);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (getPermissionState("bluetooth") != PermissionState.GRANTED) {
+                requestPermissionForAlias("bluetooth", call, "bluetoothPermissionCallback");
+                return;
+            }
+        }
+        resolveAudioDevices(call);
+    }
+
+    @PermissionCallback
+    private void bluetoothPermissionCallback(PluginCall call) {
+        resolveAudioDevices(call);
+    }
+
+    private void resolveAudioDevices(PluginCall call) {
+        AudioSwitch switchRef = ensureAudioSwitchStarted();
+        List<AudioDevice> devices = switchRef.getAvailableAudioDevices();
+        AudioDevice selected = switchRef.getSelectedAudioDevice();
+        JSObject payload = buildAudioDevicesPayload(devices, selected);
+        call.resolve(payload);
     }
 
     @PluginMethod
     public void setInputDevice(final PluginCall call) {
-        // Audio device selection is only supported on web platform.
-        final JSObject ret = new JSObject();
+        JSObject ret = new JSObject();
         ret.put("success", true);
         call.resolve(ret);
     }
 
     @PluginMethod
     public void setOutputDevice(final PluginCall call) {
-        // Audio device selection is only supported on web platform.
-        final JSObject ret = new JSObject();
+        String deviceId = call.getString("deviceId");
+        if (deviceId == null || deviceId.isEmpty()) {
+            call.reject("deviceId is required");
+            return;
+        }
+
+        AudioSwitch switchRef = ensureAudioSwitchStarted();
+        AudioDevice target;
+        synchronized (audioDeviceIdMap) {
+            target = audioDeviceIdMap.get(deviceId);
+        }
+
+        if (target == null) {
+            for (AudioDevice device : switchRef.getAvailableAudioDevices()) {
+                if (deviceIdFor(device).equals(deviceId)) {
+                    target = device;
+                    break;
+                }
+            }
+        }
+
+        if (target == null) {
+            call.reject("Audio device not found: " + deviceId);
+            return;
+        }
+
+        switchRef.selectDevice(target);
+
+        JSObject ret = new JSObject();
         ret.put("success", true);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void presentAudioRoutePicker(final PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("success", false);
         call.resolve(ret);
     }
 }

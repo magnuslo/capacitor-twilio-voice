@@ -467,6 +467,9 @@ class CapacitorTwilioVoiceWeb extends core.WebPlugin {
             return null;
         }
     }
+    async presentAudioRoutePicker() {
+        return { success: false };
+    }
     // ─── Plugin Version ────────────────────────────────────────────────
     async getPluginVersion() {
         return { version: '8.0.28' };

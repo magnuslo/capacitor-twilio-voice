@@ -4,7 +4,9 @@ import PushKit
 import CallKit
 import TwilioVoice
 import AVFoundation
+import AVKit
 import Intents
+import UIKit
 
 let kRegistrationTTLInDays = 365
 let kCachedDeviceToken = "CachedDeviceToken"
@@ -49,7 +51,8 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
         CAPPluginMethod(name: "getPluginVersion", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAudioDevices", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setInputDevice", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setOutputDevice", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "setOutputDevice", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "presentAudioRoutePicker", returnType: CAPPluginReturnPromise)
     ]
 
     // MARK: - Properties
@@ -73,6 +76,7 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
         let params: [String: String]?
     }
     private var pendingOutgoingCalls: [UUID: PendingOutgoingCall] = [:]
+    private var routeObserverInstalled = false
 
     deinit {
         // Remove observers
@@ -148,6 +152,58 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
             name: AVAudioSession.interruptionNotification,
             object: nil
         )
+
+        installRouteChangeObserverIfNeeded()
+    }
+
+    private func installRouteChangeObserverIfNeeded() {
+        guard !routeObserverInstalled else { return }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioRouteChange(notification:)),
+            name: AVAudioSession.routeChangeNotification,
+            object: nil
+        )
+        routeObserverInstalled = true
+    }
+
+    @objc private func handleAudioRouteChange(notification: Notification) {
+        let payload = buildAudioDevicesPayload()
+        DispatchQueue.main.async { [weak self] in
+            self?.notifyListeners("audioDevicesChanged", data: payload)
+        }
+    }
+
+    private func buildAudioDevicesPayload() -> [String: Any] {
+        let audioSession = AVAudioSession.sharedInstance()
+        let currentRoute = audioSession.currentRoute
+        let currentInputUid = currentRoute.inputs.first?.uid
+        let currentOutputUid = currentRoute.outputs.first?.uid
+
+        var inputs: [[String: Any]] = []
+        for port in (audioSession.availableInputs ?? []) {
+            inputs.append([
+                "deviceId": port.uid,
+                "label": port.portName,
+                "kind": "audioinput",
+                "isDefault": port.uid == currentInputUid
+            ])
+        }
+
+        var outputs: [[String: Any]] = []
+        for port in currentRoute.outputs {
+            outputs.append([
+                "deviceId": port.uid,
+                "label": port.portName,
+                "kind": "audiooutput",
+                "isDefault": port.uid == currentOutputUid
+            ])
+        }
+
+        return [
+            "inputs": inputs,
+            "outputs": outputs
+        ]
     }
 
     @objc private func handleMediaServicesReset() {
@@ -1323,22 +1379,82 @@ extension CapacitorTwilioVoicePlugin: AVAudioPlayerDelegate {
         call.resolve(["version": self.pluginVersion])
     }
 
-    // MARK: - Audio Device Selection (Web-only, stubs for native)
+    // MARK: - Audio Device Selection
 
     @objc func getAudioDevices(_ call: CAPPluginCall) {
-        // Audio device selection is only supported on web platform.
-        // On iOS, the system manages audio routing automatically.
-        call.resolve(["inputs": [], "outputs": []])
+        installRouteChangeObserverIfNeeded()
+        let payload = buildAudioDevicesPayload()
+        call.resolve(payload)
     }
 
     @objc func setInputDevice(_ call: CAPPluginCall) {
-        // Audio device selection is only supported on web platform.
-        call.resolve(["success": true])
+        guard let deviceId = call.getString("deviceId") else {
+            call.reject("deviceId is required")
+            return
+        }
+
+        let audioSession = AVAudioSession.sharedInstance()
+        let availableInputs = audioSession.availableInputs ?? []
+
+        guard let matching = availableInputs.first(where: { $0.uid == deviceId }) else {
+            call.reject("No matching input device for deviceId: \(deviceId)")
+            return
+        }
+
+        do {
+            try audioSession.setPreferredInput(matching)
+            call.resolve(["success": true])
+        } catch {
+            NSLog("Failed to set preferred input: \(error.localizedDescription)")
+            call.reject("Failed to set preferred input: \(error.localizedDescription)")
+        }
     }
 
     @objc func setOutputDevice(_ call: CAPPluginCall) {
-        // Audio device selection is only supported on web platform.
+        // iOS does not allow programmatic selection of arbitrary outputs.
+        // The route picker (presentAudioRoutePicker) is the UI for that.
+        // Kept as best-effort no-op so the JS contract remains stable.
         call.resolve(["success": true])
+    }
+
+    @objc func presentAudioRoutePicker(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let rootView = self.findKeyRootView() else {
+                call.resolve(["success": false])
+                return
+            }
+
+            let routePickerView = AVRoutePickerView(frame: CGRect(x: 0, y: 0, width: 0, height: 0))
+            routePickerView.isHidden = true
+            rootView.addSubview(routePickerView)
+
+            for subview in routePickerView.subviews {
+                if let button = subview as? UIButton {
+                    button.sendActions(for: .touchUpInside)
+                    break
+                }
+            }
+
+            call.resolve(["success": true])
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                routePickerView.removeFromSuperview()
+            }
+        }
+    }
+
+    private func findKeyRootView() -> UIView? {
+        if #available(iOS 13.0, *) {
+            for scene in UIApplication.shared.connectedScenes {
+                guard let windowScene = scene as? UIWindowScene else { continue }
+                let keyWindow = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first
+                if let rootView = keyWindow?.rootViewController?.view {
+                    return rootView
+                }
+            }
+        }
+        return UIApplication.shared.windows.first(where: { $0.isKeyWindow })?.rootViewController?.view
+            ?? UIApplication.shared.windows.first?.rootViewController?.view
     }
 
 }
