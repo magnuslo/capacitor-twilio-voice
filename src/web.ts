@@ -453,10 +453,7 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
       // before handing it off. The user-intent value (which may be
       // "default") is what we remember in selectedOutputDeviceId so a
       // later setSpeaker(true) still tracks the system default correctly.
-      const targetId =
-        options.deviceId === 'default'
-          ? await this.resolveDefaultOutputDeviceId()
-          : options.deviceId;
+      const targetId = options.deviceId === 'default' ? await this.resolveDefaultOutputDeviceId() : options.deviceId;
 
       if (!targetId) {
         return { success: false };
@@ -481,10 +478,7 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
       return { success: false };
     }
     try {
-      const targetId =
-        options.deviceId === 'default'
-          ? await this.resolveDefaultOutputDeviceId()
-          : options.deviceId;
+      const targetId = options.deviceId === 'default' ? await this.resolveDefaultOutputDeviceId() : options.deviceId;
 
       if (!targetId) {
         return { success: false };
@@ -520,9 +514,9 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
     console.warn = (...args: unknown[]) => {
       const first = args[0];
       if (
-        typeof first === 'string'
-        && first.includes('[TwilioVoice][AudioHelper]')
-        && first.includes('Devices not found: default')
+        typeof first === 'string' &&
+        first.includes('[TwilioVoice][AudioHelper]') &&
+        first.includes('Devices not found: default')
       ) {
         return;
       }
