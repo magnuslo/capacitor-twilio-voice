@@ -723,7 +723,7 @@ public class CapacitorTwilioVoicePlugin extends Plugin {
         }
     }
 
-    private void onAudioDevicesChanged(List<AudioDevice> devices, AudioDevice selected) {
+    private void onAudioDevicesChanged(List<? extends AudioDevice> devices, AudioDevice selected) {
         if (audioDevicesDebounceHandler == null) {
             audioDevicesDebounceHandler = new Handler(Looper.getMainLooper());
         }
@@ -734,12 +734,12 @@ public class CapacitorTwilioVoicePlugin extends Plugin {
         audioDevicesDebounceHandler.postDelayed(audioDevicesDebounceRunnable, AUDIO_DEVICES_DEBOUNCE_MS);
     }
 
-    private void emitAudioDevicesChanged(List<AudioDevice> devices, AudioDevice selected) {
+    private void emitAudioDevicesChanged(List<? extends AudioDevice> devices, AudioDevice selected) {
         JSObject payload = buildAudioDevicesPayload(devices, selected);
         notifyListeners("audioDevicesChanged", payload);
     }
 
-    private JSObject buildAudioDevicesPayload(List<AudioDevice> devices, AudioDevice selected) {
+    private JSObject buildAudioDevicesPayload(List<? extends AudioDevice> devices, AudioDevice selected) {
         JSArray outputs = new JSArray();
         synchronized (audioDeviceIdMap) {
             audioDeviceIdMap.clear();
