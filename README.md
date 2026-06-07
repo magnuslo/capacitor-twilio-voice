@@ -563,6 +563,7 @@ Common error scenarios:
 * [`getAudioDevices()`](#getaudiodevices)
 * [`setInputDevice(...)`](#setinputdevice)
 * [`setOutputDevice(...)`](#setoutputdevice)
+* [`setRingtoneDevice(...)`](#setringtonedevice)
 * [`presentAudioRoutePicker()`](#presentaudioroutepicker)
 * [`addListener('callInviteReceived', ...)`](#addlistenercallinvitereceived-)
 * [`addListener('callConnected', ...)`](#addlistenercallconnected-)
@@ -862,11 +863,39 @@ On iOS/Android: No-op, returns `{ success: true }`.
 setOutputDevice(options: { deviceId: string; }) => Promise<{ success: boolean; }>
 ```
 
-Select a specific audio output device (speaker/headphones).
+Select a specific audio output device (speaker/headphones) for call audio.
 
-On web/Electron: Routes call audio and ringtone through the specified device.
+On web/Electron: Routes call audio through the specified device. Also routes
+ringtone through the same device UNLESS `setRingtoneDevice` has been called
+during this session — once a dedicated ringtone device is set, this method
+leaves the ringtone routing untouched.
 Requires browser support for the `setSinkId` API. Check `getAudioDevices()` for
 available outputs — if the array is empty, output selection is not supported.
+On iOS/Android: No-op, returns `{ success: true }`.
+
+| Param         | Type                               | Description            |
+| ------------- | ---------------------------------- | ---------------------- |
+| **`options`** | <code>{ deviceId: string; }</code> | - Configuration object |
+
+**Returns:** <code>Promise&lt;{ success: boolean; }&gt;</code>
+
+--------------------
+
+
+### setRingtoneDevice(...)
+
+```typescript
+setRingtoneDevice(options: { deviceId: string; }) => Promise<{ success: boolean; }>
+```
+
+Select a specific audio output device for the incoming-call ringtone only.
+
+On web/Electron: Routes Twilio's incoming-call ringing sound through the
+specified device. Call audio (set via `setOutputDevice`) is unaffected.
+Once called, subsequent `setOutputDevice` calls will NOT clobber the
+ringtone routing — the two channels stay split for the rest of the session
+or until `logout()` resets state.
+Requires browser support for the `setSinkId` API.
 On iOS/Android: No-op, returns `{ success: true }`.
 
 | Param         | Type                               | Description            |

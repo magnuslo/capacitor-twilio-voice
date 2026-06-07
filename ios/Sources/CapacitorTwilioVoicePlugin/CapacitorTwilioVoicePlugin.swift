@@ -53,6 +53,7 @@ public class CapacitorTwilioVoicePlugin: CAPPlugin, CAPBridgedPlugin, PushKitEve
         CAPPluginMethod(name: "getAudioDevices", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setInputDevice", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setOutputDevice", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setRingtoneDevice", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "presentAudioRoutePicker", returnType: CAPPluginReturnPromise)
     ]
 
@@ -1430,6 +1431,12 @@ extension CapacitorTwilioVoicePlugin: AVAudioPlayerDelegate {
         // iOS does not allow programmatic selection of arbitrary outputs.
         // The route picker (presentAudioRoutePicker) is the UI for that.
         // Kept as best-effort no-op so the JS contract remains stable.
+        call.resolve(["success": true])
+    }
+
+    @objc func setRingtoneDevice(_ call: CAPPluginCall) {
+        // iOS routes ringtone audio through AVAudioSession alongside call audio.
+        // No separate selection API exists. No-op for JS contract parity.
         call.resolve(["success": true])
     }
 

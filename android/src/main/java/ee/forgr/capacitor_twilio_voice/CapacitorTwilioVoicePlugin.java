@@ -2066,6 +2066,13 @@ public class CapacitorTwilioVoicePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setRingtoneDevice(final PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void setOutputDevice(final PluginCall call) {
         String deviceId = call.getString("deviceId");
         if (deviceId == null || deviceId.isEmpty()) {
