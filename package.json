@@ -53,7 +53,8 @@
     "clean": "rimraf ./dist",
     "watch": "tsc --watch",
     "prepublishOnly": "npm run build",
-    "capacitor:sync:after": "node scripts/remove_twilio_voice_from_capacitor_plugins.js"
+    "capacitor:sync:after": "node scripts/remove_twilio_voice_from_capacitor_plugins.js",
+    "check:wiring": "node scripts/check-capacitor-plugin-wiring.mjs"
   },
   "devDependencies": {
     "@capacitor/android": "^8.0.0",
