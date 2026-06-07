@@ -134,9 +134,7 @@
           }
         ],
         "docs": "Initiate an outgoing call to a phone number or client.\n\nThe user must be logged in before making a call. The call will be routed\nthrough your Twilio backend configuration.",
-        "complexTypes": [
-          "Record"
-        ],
+        "complexTypes": ["Record"],
         "slug": "makecall"
       },
       {
@@ -389,9 +387,7 @@
           }
         ],
         "docs": "Get the current status of the active call.\n\nThis provides real-time information about the call state, mute status,\nhold status, and call identifiers.",
-        "complexTypes": [
-          "CallInvite"
-        ],
+        "complexTypes": ["CallInvite"],
         "slug": "getcallstatus"
       },
       {
@@ -456,9 +452,7 @@
           }
         ],
         "docs": "Get available audio input and output devices.\n\nOn web/Electron: Enumerates system audio devices using the Web Audio API.\nRequires microphone permission to have been granted for device labels to be available.\nOn iOS/Android: Returns empty arrays (audio routing is handled by the OS).",
-        "complexTypes": [
-          "AudioDevice"
-        ],
+        "complexTypes": ["AudioDevice"],
         "slug": "getaudiodevices"
       },
       {
@@ -523,9 +517,42 @@
             "text": "```typescript\nconst { outputs } = await CapacitorTwilioVoice.getAudioDevices();\nif (outputs.length > 1) {\n  await CapacitorTwilioVoice.setOutputDevice({ deviceId: outputs[1].deviceId });\n}\n```"
           }
         ],
-        "docs": "Select a specific audio output device (speaker/headphones).\n\nOn web/Electron: Routes call audio and ringtone through the specified device.\nRequires browser support for the `setSinkId` API. Check `getAudioDevices()` for\navailable outputs — if the array is empty, output selection is not supported.\nOn iOS/Android: No-op, returns `{ success: true }`.",
+        "docs": "Select a specific audio output device (speaker/headphones) for call audio.\n\nOn web/Electron: Routes call audio through the specified device. Also routes\nringtone through the same device UNLESS `setRingtoneDevice` has been called\nduring this session — once a dedicated ringtone device is set, this method\nleaves the ringtone routing untouched.\nRequires browser support for the `setSinkId` API. Check `getAudioDevices()` for\navailable outputs — if the array is empty, output selection is not supported.\nOn iOS/Android: No-op, returns `{ success: true }`.",
         "complexTypes": [],
         "slug": "setoutputdevice"
+      },
+      {
+        "name": "setRingtoneDevice",
+        "signature": "(options: { deviceId: string; }) => Promise<{ success: boolean; }>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "- Configuration object",
+            "type": "{ deviceId: string; }"
+          }
+        ],
+        "returns": "Promise<{ success: boolean; }>",
+        "tags": [
+          {
+            "name": "param",
+            "text": "options - Configuration object"
+          },
+          {
+            "name": "param",
+            "text": "options.deviceId - The deviceId of the desired ringtone output device"
+          },
+          {
+            "name": "returns",
+            "text": "Promise that resolves with success status"
+          },
+          {
+            "name": "example",
+            "text": "```typescript\nconst { outputs } = await CapacitorTwilioVoice.getAudioDevices();\nawait CapacitorTwilioVoice.setOutputDevice({ deviceId: outputs[0].deviceId });\nawait CapacitorTwilioVoice.setRingtoneDevice({ deviceId: outputs[1].deviceId });\n```"
+          }
+        ],
+        "docs": "Select a specific audio output device for the incoming-call ringtone only.\n\nOn web/Electron: Routes Twilio's incoming-call ringing sound through the\nspecified device. Call audio (set via `setOutputDevice`) is unaffected.\nOnce called, subsequent `setOutputDevice` calls will NOT clobber the\nringtone routing — the two channels stay split for the rest of the session\nor until `logout()` resets state.\nRequires browser support for the `setSinkId` API.\nOn iOS/Android: No-op, returns `{ success: true }`.",
+        "complexTypes": [],
+        "slug": "setringtonedevice"
       },
       {
         "name": "presentAudioRoutePicker",
@@ -581,10 +608,7 @@
           }
         ],
         "docs": "Listen for incoming call invitations.\n\nThis event is fired when another user or phone number is calling you.\nYou should call acceptCall() or rejectCall() in response.",
-        "complexTypes": [
-          "PluginListenerHandle",
-          "CallInvite"
-        ],
+        "complexTypes": ["PluginListenerHandle", "CallInvite"],
         "slug": "addlistenercallinvitereceived-"
       },
       {
@@ -630,9 +654,7 @@
           }
         ],
         "docs": "Listen for call connected events.\n\nThis event is fired when a call (incoming or outgoing) has been successfully\nconnected and audio can be heard.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenercallconnected-"
       },
       {
@@ -682,9 +704,7 @@
           }
         ],
         "docs": "Listen for call invite cancellation events.\n\nThis event is fired when an incoming call invitation is cancelled before being\nanswered, either by the caller hanging up or by the user declining.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenercallinvitecancelled-"
       },
       {
@@ -742,9 +762,7 @@
           }
         ],
         "docs": "Listen for outgoing call initiation events.\n\nThis event is fired when an outgoing call is initiated, either from the app\nor from the system (e.g., CallKit on iOS, Telecom on Android).",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlisteneroutgoingcallinitiated-"
       },
       {
@@ -802,9 +820,7 @@
           }
         ],
         "docs": "Listen for outgoing call failure events.\n\nThis event is fired when an outgoing call fails to connect due to various reasons\nsuch as missing credentials, permission issues, or network problems.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlisteneroutgoingcallfailed-"
       },
       {
@@ -854,9 +870,7 @@
           }
         ],
         "docs": "Listen for call disconnection events.\n\nThis event is fired when a call ends, either normally or due to an error.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenercalldisconnected-"
       },
       {
@@ -902,9 +916,7 @@
           }
         ],
         "docs": "Listen for call ringing events.\n\nThis event is fired when an outgoing call starts ringing on the other end.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenercallringing-"
       },
       {
@@ -954,9 +966,7 @@
           }
         ],
         "docs": "Listen for call reconnecting events.\n\nThis event is fired when a call loses connection and Twilio is attempting to\nreconnect. The call is not disconnected yet but audio may be interrupted.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenercallreconnecting-"
       },
       {
@@ -1002,9 +1012,7 @@
           }
         ],
         "docs": "Listen for call reconnected events.\n\nThis event is fired when a call successfully reconnects after a connection loss.\nAudio should resume normally after this event.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenercallreconnected-"
       },
       {
@@ -1058,9 +1066,7 @@
           }
         ],
         "docs": "Listen for call quality warning events.\n\nThis event is fired when the call quality changes, providing warnings about\npotential issues like high jitter, packet loss, or low audio levels.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenercallqualitywarningschanged-"
       },
       {
@@ -1098,9 +1104,7 @@
           }
         ],
         "docs": "Listen for successful registration events.\n\nThis event is fired when the device successfully registers with Twilio Voice\nand is ready to make and receive calls. This typically occurs after a successful\nlogin with a valid access token.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenerregistrationsuccess-"
       },
       {
@@ -1146,9 +1150,7 @@
           }
         ],
         "docs": "Listen for registration failure events.\n\nThis event is fired when the device fails to register with Twilio Voice,\ntypically due to an invalid or expired access token, network issues, or\nTwilio service problems.",
-        "complexTypes": [
-          "PluginListenerHandle"
-        ],
+        "complexTypes": ["PluginListenerHandle"],
         "slug": "addlistenerregistrationfailure-"
       },
       {
@@ -1198,10 +1200,7 @@
           }
         ],
         "docs": "Listen for audio device changes.\n\nThis event is fired when audio input/output devices are added or removed\nfrom the system (e.g., plugging in headphones, connecting Bluetooth).\nWeb/Electron only — this event is never fired on iOS/Android.",
-        "complexTypes": [
-          "PluginListenerHandle",
-          "AudioDevice"
-        ],
+        "complexTypes": ["PluginListenerHandle", "AudioDevice"],
         "slug": "addlisteneraudiodeviceschanged-"
       },
       {
@@ -1283,9 +1282,7 @@
           "name": "customParams",
           "tags": [],
           "docs": "Custom parameters passed with the call invitation",
-          "complexTypes": [
-            "Record"
-          ],
+          "complexTypes": ["Record"],
           "type": "Record<string, string>"
         }
       ]
@@ -1351,10 +1348,7 @@
       "types": [
         {
           "text": "{\r\n    [P in K]: T;\r\n}",
-          "complexTypes": [
-            "K",
-            "T"
-          ]
+          "complexTypes": ["K", "T"]
         }
       ]
     }

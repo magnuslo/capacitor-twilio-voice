@@ -13,6 +13,7 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
   private currentWarnings: Map<string, Set<string>> = new Map();
 
   private selectedOutputDeviceId: string | null = null;
+  private hasExplicitRingtoneDevice = false;
 
   private static readonly HARD_CLEANUP_TIMEOUT_MS = 500;
 
@@ -97,6 +98,7 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
     this.accessToken = null;
     this.currentWarnings.clear();
     this.selectedOutputDeviceId = null;
+    this.hasExplicitRingtoneDevice = false;
 
     return { success: true };
   }
@@ -451,10 +453,7 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
       // before handing it off. The user-intent value (which may be
       // "default") is what we remember in selectedOutputDeviceId so a
       // later setSpeaker(true) still tracks the system default correctly.
-      const targetId =
-        options.deviceId === 'default'
-          ? await this.resolveDefaultOutputDeviceId()
-          : options.deviceId;
+      const targetId = options.deviceId === 'default' ? await this.resolveDefaultOutputDeviceId() : options.deviceId;
 
       if (!targetId) {
         return { success: false };
@@ -462,6 +461,30 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
 
       this.selectedOutputDeviceId = options.deviceId;
       await this.device.audio.speakerDevices.set([targetId]);
+      if (!this.hasExplicitRingtoneDevice) {
+        await this.device.audio.ringtoneDevices.set([targetId]);
+      }
+      return { success: true };
+    } catch {
+      return { success: false };
+    }
+  }
+
+  async setRingtoneDevice(options: { deviceId: string }): Promise<{ success: boolean }> {
+    if (!this.device?.audio) {
+      return { success: false };
+    }
+    if (!this.device.audio.isOutputSelectionSupported) {
+      return { success: false };
+    }
+    try {
+      const targetId = options.deviceId === 'default' ? await this.resolveDefaultOutputDeviceId() : options.deviceId;
+
+      if (!targetId) {
+        return { success: false };
+      }
+
+      this.hasExplicitRingtoneDevice = true;
       await this.device.audio.ringtoneDevices.set([targetId]);
       return { success: true };
     } catch {
@@ -491,9 +514,9 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
     console.warn = (...args: unknown[]) => {
       const first = args[0];
       if (
-        typeof first === 'string'
-        && first.includes('[TwilioVoice][AudioHelper]')
-        && first.includes('Devices not found: default')
+        typeof first === 'string' &&
+        first.includes('[TwilioVoice][AudioHelper]') &&
+        first.includes('Devices not found: default')
       ) {
         return;
       }
@@ -532,7 +555,7 @@ export class CapacitorTwilioVoiceWeb extends WebPlugin implements CapacitorTwili
   // ─── Plugin Version ────────────────────────────────────────────────
 
   async getPluginVersion(): Promise<{ version: string }> {
-    return { version: '8.0.28' };
+    return { version: '8.2.4' };
   }
 
   // ─── Private: Call Cleanup ──────────────────────────────────────────

@@ -38,6 +38,8 @@ bun remove "$plugin_name"
 bun add "${packed_packages[0]}"
 bun run build
 
+rm -rf android ios
+
 case "$platform" in
   android)
     bunx cap add android

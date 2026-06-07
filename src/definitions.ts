@@ -468,9 +468,12 @@ export interface CapacitorTwilioVoicePlugin {
   setInputDevice(options: { deviceId: string }): Promise<{ success: boolean }>;
 
   /**
-   * Select a specific audio output device (speaker/headphones).
+   * Select a specific audio output device (speaker/headphones) for call audio.
    *
-   * On web/Electron: Routes call audio and ringtone through the specified device.
+   * On web/Electron: Routes call audio through the specified device. Also routes
+   * ringtone through the same device UNLESS `setRingtoneDevice` has been called
+   * during this session — once a dedicated ringtone device is set, this method
+   * leaves the ringtone routing untouched.
    * Requires browser support for the `setSinkId` API. Check `getAudioDevices()` for
    * available outputs — if the array is empty, output selection is not supported.
    * On iOS/Android: No-op, returns `{ success: true }`.
@@ -488,6 +491,30 @@ export interface CapacitorTwilioVoicePlugin {
    * ```
    */
   setOutputDevice(options: { deviceId: string }): Promise<{ success: boolean }>;
+
+  /**
+   * Select a specific audio output device for the incoming-call ringtone only.
+   *
+   * On web/Electron: Routes Twilio's incoming-call ringing sound through the
+   * specified device. Call audio (set via `setOutputDevice`) is unaffected.
+   * Once called, subsequent `setOutputDevice` calls will NOT clobber the
+   * ringtone routing — the two channels stay split for the rest of the session
+   * or until `logout()` resets state.
+   * Requires browser support for the `setSinkId` API.
+   * On iOS/Android: No-op, returns `{ success: true }`.
+   *
+   * @param options - Configuration object
+   * @param options.deviceId - The deviceId of the desired ringtone output device
+   * @returns Promise that resolves with success status
+   *
+   * @example
+   * ```typescript
+   * const { outputs } = await CapacitorTwilioVoice.getAudioDevices();
+   * await CapacitorTwilioVoice.setOutputDevice({ deviceId: outputs[0].deviceId });
+   * await CapacitorTwilioVoice.setRingtoneDevice({ deviceId: outputs[1].deviceId });
+   * ```
+   */
+  setRingtoneDevice(options: { deviceId: string }): Promise<{ success: boolean }>;
 
   /**
    * Present the system audio route picker (iOS only).
