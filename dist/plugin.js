@@ -15,6 +15,7 @@ var capacitorCapacitorTwilioVoice = (function (exports, core, voiceSdk) {
             this.accessToken = null;
             this.currentWarnings = new Map();
             this.selectedOutputDeviceId = null;
+            this.hasExplicitRingtoneDevice = false;
         }
         // ─── Authentication ────────────────────────────────────────────────
         async login(options) {
@@ -86,6 +87,7 @@ var capacitorCapacitorTwilioVoice = (function (exports, core, voiceSdk) {
             this.accessToken = null;
             this.currentWarnings.clear();
             this.selectedOutputDeviceId = null;
+            this.hasExplicitRingtoneDevice = false;
             return { success: true };
         }
         async isLoggedIn() {
@@ -402,6 +404,31 @@ var capacitorCapacitorTwilioVoice = (function (exports, core, voiceSdk) {
                 }
                 this.selectedOutputDeviceId = options.deviceId;
                 await this.device.audio.speakerDevices.set([targetId]);
+                if (!this.hasExplicitRingtoneDevice) {
+                    await this.device.audio.ringtoneDevices.set([targetId]);
+                }
+                return { success: true };
+            }
+            catch (_b) {
+                return { success: false };
+            }
+        }
+        async setRingtoneDevice(options) {
+            var _a;
+            if (!((_a = this.device) === null || _a === void 0 ? void 0 : _a.audio)) {
+                return { success: false };
+            }
+            if (!this.device.audio.isOutputSelectionSupported) {
+                return { success: false };
+            }
+            try {
+                const targetId = options.deviceId === 'default'
+                    ? await this.resolveDefaultOutputDeviceId()
+                    : options.deviceId;
+                if (!targetId) {
+                    return { success: false };
+                }
+                this.hasExplicitRingtoneDevice = true;
                 await this.device.audio.ringtoneDevices.set([targetId]);
                 return { success: true };
             }
@@ -470,7 +497,7 @@ var capacitorCapacitorTwilioVoice = (function (exports, core, voiceSdk) {
         }
         // ─── Plugin Version ────────────────────────────────────────────────
         async getPluginVersion() {
-            return { version: '8.0.28' };
+            return { version: '8.2.4' };
         }
         // ─── Private: Call Cleanup ──────────────────────────────────────────
         /**

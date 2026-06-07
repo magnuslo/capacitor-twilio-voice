@@ -8,6 +8,7 @@ export declare class CapacitorTwilioVoiceWeb extends WebPlugin implements Capaci
     private accessToken;
     private currentWarnings;
     private selectedOutputDeviceId;
+    private hasExplicitRingtoneDevice;
     private static readonly HARD_CLEANUP_TIMEOUT_MS;
     login(options: {
         accessToken: string;
@@ -86,6 +87,11 @@ export declare class CapacitorTwilioVoiceWeb extends WebPlugin implements Capaci
         success: boolean;
     }>;
     setOutputDevice(options: {
+        deviceId: string;
+    }): Promise<{
+        success: boolean;
+    }>;
+    setRingtoneDevice(options: {
         deviceId: string;
     }): Promise<{
         success: boolean;

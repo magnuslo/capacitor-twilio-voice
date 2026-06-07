@@ -523,9 +523,42 @@
             "text": "```typescript\nconst { outputs } = await CapacitorTwilioVoice.getAudioDevices();\nif (outputs.length > 1) {\n  await CapacitorTwilioVoice.setOutputDevice({ deviceId: outputs[1].deviceId });\n}\n```"
           }
         ],
-        "docs": "Select a specific audio output device (speaker/headphones).\n\nOn web/Electron: Routes call audio and ringtone through the specified device.\nRequires browser support for the `setSinkId` API. Check `getAudioDevices()` for\navailable outputs — if the array is empty, output selection is not supported.\nOn iOS/Android: No-op, returns `{ success: true }`.",
+        "docs": "Select a specific audio output device (speaker/headphones) for call audio.\n\nOn web/Electron: Routes call audio through the specified device. Also routes\nringtone through the same device UNLESS `setRingtoneDevice` has been called\nduring this session — once a dedicated ringtone device is set, this method\nleaves the ringtone routing untouched.\nRequires browser support for the `setSinkId` API. Check `getAudioDevices()` for\navailable outputs — if the array is empty, output selection is not supported.\nOn iOS/Android: No-op, returns `{ success: true }`.",
         "complexTypes": [],
         "slug": "setoutputdevice"
+      },
+      {
+        "name": "setRingtoneDevice",
+        "signature": "(options: { deviceId: string; }) => Promise<{ success: boolean; }>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "- Configuration object",
+            "type": "{ deviceId: string; }"
+          }
+        ],
+        "returns": "Promise<{ success: boolean; }>",
+        "tags": [
+          {
+            "name": "param",
+            "text": "options - Configuration object"
+          },
+          {
+            "name": "param",
+            "text": "options.deviceId - The deviceId of the desired ringtone output device"
+          },
+          {
+            "name": "returns",
+            "text": "Promise that resolves with success status"
+          },
+          {
+            "name": "example",
+            "text": "```typescript\nconst { outputs } = await CapacitorTwilioVoice.getAudioDevices();\nawait CapacitorTwilioVoice.setOutputDevice({ deviceId: outputs[0].deviceId });\nawait CapacitorTwilioVoice.setRingtoneDevice({ deviceId: outputs[1].deviceId });\n```"
+          }
+        ],
+        "docs": "Select a specific audio output device for the incoming-call ringtone only.\n\nOn web/Electron: Routes Twilio's incoming-call ringing sound through the\nspecified device. Call audio (set via `setOutputDevice`) is unaffected.\nOnce called, subsequent `setOutputDevice` calls will NOT clobber the\nringtone routing — the two channels stay split for the rest of the session\nor until `logout()` resets state.\nRequires browser support for the `setSinkId` API.\nOn iOS/Android: No-op, returns `{ success: true }`.",
+        "complexTypes": [],
+        "slug": "setringtonedevice"
       },
       {
         "name": "presentAudioRoutePicker",
